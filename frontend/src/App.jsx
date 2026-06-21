@@ -9,13 +9,52 @@ import {
 import { 
   Flame, LogOut, Settings, Database, TrendingUp, Search, 
   Octagon, Cpu, Package, AlertCircle, Users, RefreshCw, 
-  Pencil, Trash2, PlusCircle, Wrench, ExternalLink 
+  Pencil, Trash2, PlusCircle, Wrench, ExternalLink,
+  Sun, Moon, Download, FileText
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// --- COMPONENTE: ENCABEZADO DE PÁGINA CON ESTADO DEL SERVIDOR ---
-function PageHeader({ title, description, serverStatus }) {
+// --- UTILIDAD: EXPORTACIÓN A CSV ---
+const handleExportCSV = (filename, data, columns) => {
+  if (!data || data.length === 0) {
+    alert('No hay datos disponibles para exportar.');
+    return;
+  }
+
+  const headers = columns.map(c => c.label);
+  const fields = columns.map(c => c.name);
+
+  const csvRows = [];
+  // Fila de cabecera
+  csvRows.push(headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(','));
+
+  // Filas de datos
+  data.forEach(row => {
+    const values = fields.map(field => {
+      let val = row[field];
+      if (val === null || val === undefined) {
+        return '""';
+      }
+      return `"${String(val).replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+    });
+    csvRows.push(values.join(','));
+  });
+
+  const csvContent = csvRows.join('\n');
+  const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// --- COMPONENTE: ENCABEZADO DE PÁGINA CON ESTADO DEL SERVIDOR Y TEMA ---
+function PageHeader({ title, description, serverStatus, theme, toggleTheme }) {
   return (
     <header className="page-header-custom" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem' }}>
       <div>
@@ -23,14 +62,37 @@ function PageHeader({ title, description, serverStatus }) {
         {description && <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>{description}</p>}
       </div>
 
-      <div className="server-widget" style={{ padding: '0.5rem 1rem' }}>
-        <span className={`status-dot ${serverStatus.online ? 'online' : 'offline'}`}></span>
-        <div style={{ fontSize: '0.85rem' }}>
-          <div style={{ fontWeight: 600 }}>API: {serverStatus.online ? 'CONECTADO' : 'DESCONECTADO'}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            DB: <span style={{ color: serverStatus.db_connected ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
-              {serverStatus.db_connected ? 'venvidrio' : 'SIN CONEXIÓN'}
-            </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <button 
+          onClick={toggleTheme} 
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            width: '40px',
+            height: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'var(--text-primary)',
+            transition: 'var(--transition-smooth)'
+          }}
+          title={theme === 'dark' ? "Modo Claro" : "Modo Oscuro"}
+          className="btn-theme-toggle"
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+
+        <div className="server-widget" style={{ padding: '0.5rem 1rem' }}>
+          <span className={`status-dot ${serverStatus.online ? 'online' : 'offline'}`}></span>
+          <div style={{ fontSize: '0.85rem' }}>
+            <div style={{ fontWeight: 600 }}>API: {serverStatus.online ? 'CONECTADO' : 'DESCONECTADO'}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              DB: <span style={{ color: serverStatus.db_connected ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+                {serverStatus.db_connected ? 'venvidrio' : 'SIN CONEXIÓN'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -129,7 +191,7 @@ function Sidebar({ currentUser, onLogout }) {
 }
 
 // --- COMPONENTE: INICIO (KPIs Y DASHBOARD GENERAL) ---
-function HomeView({ produccion, serverStatus }) {
+function HomeView({ produccion, serverStatus, theme, toggleTheme }) {
   const totalPaletas = produccion.reduce((acc, curr) => acc + (parseFloat(curr.paletas_producidas) || 0), 0);
   const totalGruesasProducidas = produccion.reduce((acc, curr) => acc + (parseFloat(curr.gruesas_producidas) || 0), 0);
   const totalGruesasEmpacadas = produccion.reduce((acc, curr) => acc + (parseFloat(curr.gruesas_empacadas) || 0), 0);
@@ -140,7 +202,7 @@ function HomeView({ produccion, serverStatus }) {
 
   return (
     <>
-      <PageHeader title="Panel Zona Caliente" description="Resumen de indicadores clave de formación y calidad en tiempo real." serverStatus={serverStatus} />
+      <PageHeader title="Panel Zona Caliente" description="Resumen de indicadores clave de formación y calidad en tiempo real." serverStatus={serverStatus} theme={theme} toggleTheme={toggleTheme} />
       
       {/* GRID DE INDICADORES */}
       <div className="stats-grid">
@@ -192,7 +254,7 @@ function ProtectedRoute({ children, currentUser }) {
 }
 
 // --- COMPONENTE: CRUD GENÉRICO PARA TABLAS DE CONFIGURACIÓN ---
-function GenericCRUD({ endpoint, title, idField, fields, displayColumns, serverStatus, onMutation }) {
+function GenericCRUD({ endpoint, title, idField, fields, displayColumns, serverStatus, onMutation, theme, toggleTheme, currentUser }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -307,14 +369,29 @@ function GenericCRUD({ endpoint, title, idField, fields, displayColumns, serverS
 
   return (
     <>
-      <PageHeader title={`Mantenimiento: ${title}`} description={`Pantalla de configuración y CRUD de la tabla '${endpoint}'.`} serverStatus={serverStatus} />
+      {/* Cabecera para reportes impresos */}
+      <div className="print-header-container">
+        <div className="print-header-brand">Venvidrio - Zona Caliente</div>
+        <h1 className="print-header-title">Reporte de Catálogo / Mantenimiento: {title}</h1>
+        <div className="print-header-meta">
+          <span><strong>Fecha de generación:</strong> {new Date().toLocaleString()}</span>
+          <span><strong>Generado por:</strong> {currentUser?.nombre} {currentUser?.apellido} ({currentUser?.rol})</span>
+        </div>
+        <hr className="print-header-divider" />
+      </div>
+
+      <PageHeader title={`Mantenimiento: ${title}`} description={`Pantalla de configuración y CRUD de la tabla '${endpoint}'.`} serverStatus={serverStatus} theme={theme} toggleTheme={toggleTheme} />
       
       <div className="main-content split-view">
         {/* LISTA */}
         <div className="panel-card">
           <div className="panel-header">
             <h2>Listado de {title}</h2>
-            <button className="btn btn-secondary" onClick={loadData}><RefreshCw size={14} /> Recargar</button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button className="btn btn-secondary" onClick={loadData}><RefreshCw size={14} /> Recargar</button>
+              <button className="btn btn-success" onClick={() => handleExportCSV(title, data, displayColumns)} title="Exportar a CSV / Excel"><Download size={14} /> Excel</button>
+              <button className="btn btn-info" onClick={() => window.print()} title="Imprimir / Guardar PDF"><FileText size={14} /> PDF</button>
+            </div>
           </div>
 
           {loading ? (
@@ -420,6 +497,21 @@ function GenericCRUD({ endpoint, title, idField, fields, displayColumns, serverS
 
 // --- COMPONENTE PRINCIPAL ---
 export default function App() {
+  // --- TEMA CLARO / OSCURO ---
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('venvidrio_theme');
+    return saved ? saved : 'dark';
+  });
+
+  useEffect(() => {
+    document.body.className = theme === 'light' ? 'light-theme' : '';
+    localStorage.setItem('venvidrio_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
+
   // --- AUTENTICACIÓN ---
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('venvidrio_user');
@@ -443,10 +535,56 @@ export default function App() {
   const [inspectores, setInspectores] = useState([]);
   const [tiposParadas, setTiposParadas] = useState([]);
 
+  // --- COLUMNAS DE REPORTES PARA MÓDULOS OPERATIVOS ---
+  const produccionCols = [
+    { name: 'fecha', label: 'Fecha' },
+    { name: 'maquina_codigo', label: 'Máquina' },
+    { name: 'turno_codigo', label: 'Turno' },
+    { name: 'producto_nombre', label: 'Producto' },
+    { name: 'paletas_producidas', label: 'Paletas' },
+    { name: 'gruesas_producidas', label: 'Gruesas Producidas' },
+    { name: 'gruesas_empacadas', label: 'Gruesas Empacadas' },
+    { name: 'gruesas_retenidas', label: 'Gruesas Retenidas' },
+    { name: 'observaciones', label: 'Observaciones' }
+  ];
+
+  const inspeccionesCols = [
+    { name: 'fecha', label: 'Fecha' },
+    { name: 'hora', label: 'Hora' },
+    { name: 'maquina_codigo', label: 'Máquina' },
+    { name: 'seccion_numero', label: 'Sección' },
+    { name: 'inspector_nombre', label: 'Inspector' },
+    { name: 'producto_nombre', label: 'Producto' },
+    { name: 'lote', label: 'Lote' },
+    { name: 'temperatura_maquina', label: 'Temp (°C)' },
+    { name: 'observaciones', label: 'Observaciones' }
+  ];
+
+  const paradasCols = [
+    { name: 'fecha', label: 'Fecha' },
+    { name: 'maquina_codigo', label: 'Máquina' },
+    { name: 'seccion_numero', label: 'Sección' },
+    { name: 'tipo_parada_nombre', label: 'Tipo Parada' },
+    { name: 'minutos_parada', label: 'Minutos' },
+    { name: 'descripcion', label: 'Detalle' },
+    { name: 'hora_inicio', label: 'Hora Inicio' },
+    { name: 'hora_fin', label: 'Hora Fin' }
+  ];
+
   // --- LISTAS TRANSACCIONALES ---
   const [produccion, setProduccion] = useState([]);
   const [inspecciones, setInspecciones] = useState([]);
   const [paradas, setParadas] = useState([]);
+
+  // --- FILTROS DE FECHA PARA REPORTES ---
+  const [prodFilterDesde, setProdFilterDesde] = useState('');
+  const [prodFilterHasta, setProdFilterHasta] = useState('');
+
+  const [inspFilterDesde, setInspFilterDesde] = useState('');
+  const [inspFilterHasta, setInspFilterHasta] = useState('');
+
+  const [paraFilterDesde, setParaFilterDesde] = useState('');
+  const [paraFilterHasta, setParaFilterHasta] = useState('');
 
   // --- FORMULARIOS TRANSACCIONALES ---
   const [produccionForm, setProduccionForm] = useState({
@@ -986,418 +1124,550 @@ export default function App() {
         {/* CONTENIDO PRINCIPAL DE LA APLICACIÓN */}
         <div className="main-layout">
           <Routes>
-            <Route path="/" element={<HomeView produccion={produccion} serverStatus={serverStatus} />} />
+            <Route path="/" element={<HomeView produccion={produccion} serverStatus={serverStatus} theme={theme} toggleTheme={toggleTheme} />} />
             
             {/* OPERACIÓN: PRODUCCIÓN */}
             <Route path="/produccion" element={
-              <>
-                <PageHeader title="Control de Producción" description="Registro del volumen diario de botellas y paletas empacadas." serverStatus={serverStatus} />
-                <div className="main-content split-view">
-                  {/* Listado */}
-                  <div className="panel-card">
-                    <div className="panel-header">
-                      <h2>Historial de Producción</h2>
-                      <button className="btn btn-secondary" onClick={() => fetchData('produccion', setProduccion)}><RefreshCw size={14} /> Recargar</button>
+              (() => {
+                const filteredProduccion = produccion.filter(p => {
+                  if (prodFilterDesde && p.fecha < prodFilterDesde) return false;
+                  if (prodFilterHasta && p.fecha > prodFilterHasta) return false;
+                  return true;
+                });
+                return (
+                  <>
+                    {/* Cabecera para reportes impresos */}
+                    <div className="print-header-container">
+                      <div className="print-header-brand">Venvidrio - Zona Caliente</div>
+                      <h1 className="print-header-title">Reporte de Control de Producción</h1>
+                      <div className="print-header-meta">
+                        <span><strong>Fecha de generación:</strong> {new Date().toLocaleString()}</span>
+                        <span><strong>Generado por:</strong> {currentUser?.nombre} {currentUser?.apellido} ({currentUser?.rol})</span>
+                        {(prodFilterDesde || prodFilterHasta) && (
+                          <span><strong>Rango de fechas:</strong> {prodFilterDesde || 'Inicio'} al {prodFilterHasta || 'Fin'}</span>
+                        )}
+                      </div>
+                      <hr className="print-header-divider" />
                     </div>
 
-                    {produccion.length === 0 ? (
-                      <div className="empty-state"><p>No hay registros de producción.</p></div>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="table-custom">
-                          <thead>
-                            <tr>
-                              <th>Fecha</th>
-                              <th>Máquina</th>
-                              <th>Turno</th>
-                              <th>Producto</th>
-                              <th>Paletas</th>
-                              <th>Empacado (Gruesas)</th>
-                              <th>Acciones</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {produccion.map(p => (
-                              <tr key={p.id_produccion}>
-                                <td>{p.fecha}</td>
-                                <td><strong>{p.maquina_codigo}</strong></td>
-                                <td>{p.turno_codigo}</td>
-                                <td>{p.producto_nombre}</td>
-                                <td>{p.paletas_producidas}</td>
-                                <td>{p.gruesas_empacadas} / {p.gruesas_producidas}</td>
-                                <td>
-                                  <button className="btn-icon edit" onClick={() => {
-                                    setEditingProduccionId(p.id_produccion);
-                                    setProduccionForm({
-                                      fecha: p.fecha, id_turno: p.id_turno, id_maquina: p.id_maquina, id_producto: p.id_producto, id_usuario: p.id_usuario,
-                                      paletas_producidas: p.paletas_producidas, gruesas_producidas: p.gruesas_producidas,
-                                      gruesas_empacadas: p.gruesas_empacadas, gruesas_retenidas: p.gruesas_retenidas,
-                                      observaciones: p.observaciones || ''
-                                    });
-                                  }} title="Editar Registro"><Pencil size={14} /></button>
-                                  {currentUser?.rol === 'Administrador' && (
-                                    <button className="btn-icon delete" onClick={() => handleDeleteProduccion(p.id_produccion)} title="Eliminar Registro"><Trash2 size={14} /></button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                    <PageHeader title="Control de Producción" description="Registro del volumen diario de botellas y paletas empacadas." serverStatus={serverStatus} theme={theme} toggleTheme={toggleTheme} />
+                    <div className="main-content split-view">
+                      {/* Listado */}
+                      <div className="panel-card">
+                        <div className="panel-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '1rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2>Historial de Producción</h2>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button className="btn btn-secondary" onClick={() => fetchData('produccion', setProduccion)}><RefreshCw size={14} /> Recargar</button>
+                              <button className="btn btn-success" onClick={() => handleExportCSV('Produccion', filteredProduccion, produccionCols)} title="Exportar a CSV / Excel"><Download size={14} /> Excel</button>
+                              <button className="btn btn-info" onClick={() => window.print()} title="Imprimir / Guardar PDF"><FileText size={14} /> PDF</button>
+                            </div>
+                          </div>
+                          
+                          {/* Filtros de Rango de Fechas */}
+                          <div className="filter-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(255, 255, 255, 0.02)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Desde:</span>
+                              <input type="date" className="form-control" style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', height: 'auto' }} value={prodFilterDesde} onChange={e => setProdFilterDesde(e.target.value)} />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Hasta:</span>
+                              <input type="date" className="form-control" style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', height: 'auto' }} value={prodFilterHasta} onChange={e => setProdFilterHasta(e.target.value)} />
+                            </div>
+                            {(prodFilterDesde || prodFilterHasta) && (
+                              <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', height: 'auto' }} onClick={() => { setProdFilterDesde(''); setProdFilterHasta(''); }}>Limpiar</button>
+                            )}
+                          </div>
+                        </div>
 
-                  {/* Formulario */}
-                  <div className="panel-card form-panel">
-                    <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                      {editingProduccionId ? <><Pencil size={18} /> Editar Producción</> : <><PlusCircle size={18} /> Registrar Producción</>}
-                    </h2>
-                    <form onSubmit={handleProduccionSubmit}>
-                      <div className="form-group">
-                        <label>Fecha de Operación *</label>
-                        <input type="date" className="form-control" value={produccionForm.fecha} onChange={e => setProduccionForm({ ...produccionForm, fecha: e.target.value })} required />
+                        {filteredProduccion.length === 0 ? (
+                          <div className="empty-state"><p>No hay registros de producción en el rango seleccionado.</p></div>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="table-custom">
+                              <thead>
+                                <tr>
+                                  <th>Fecha</th>
+                                  <th>Máquina</th>
+                                  <th>Turno</th>
+                                  <th>Producto</th>
+                                  <th>Paletas</th>
+                                  <th>Empacado (Gruesas)</th>
+                                  <th>Acciones</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filteredProduccion.map(p => (
+                                  <tr key={p.id_produccion}>
+                                    <td>{p.fecha}</td>
+                                    <td><strong>{p.maquina_codigo}</strong></td>
+                                    <td>{p.turno_codigo}</td>
+                                    <td>{p.producto_nombre}</td>
+                                    <td>{p.paletas_producidas}</td>
+                                    <td>{p.gruesas_empacadas} / {p.gruesas_producidas}</td>
+                                    <td>
+                                      <button className="btn-icon edit" onClick={() => {
+                                        setEditingProduccionId(p.id_produccion);
+                                        setProduccionForm({
+                                          fecha: p.fecha, id_turno: p.id_turno, id_maquina: p.id_maquina, id_producto: p.id_producto, id_usuario: p.id_usuario,
+                                          paletas_producidas: p.paletas_producidas, gruesas_producidas: p.gruesas_producidas,
+                                          gruesas_empacadas: p.gruesas_empacadas, gruesas_retenidas: p.gruesas_retenidas,
+                                          observaciones: p.observaciones || ''
+                                        });
+                                      }} title="Editar Registro"><Pencil size={14} /></button>
+                                      {currentUser?.rol === 'Administrador' && (
+                                        <button className="btn-icon delete" onClick={() => handleDeleteProduccion(p.id_produccion)} title="Eliminar Registro"><Trash2 size={14} /></button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Máquina IS *</label>
-                          <select className="form-control" value={produccionForm.id_maquina} onChange={e => setProduccionForm({ ...produccionForm, id_maquina: e.target.value })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {maquinas.filter(m => m.estado !== 'INACTIVA').map(m => <option key={m.id_maquina} value={m.id_maquina}>{m.codigo}</option>)}
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>Turno *</label>
-                          <select className="form-control" value={produccionForm.id_turno} onChange={e => setProduccionForm({ ...produccionForm, id_turno: e.target.value })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.codigo_turno}</option>)}
-                          </select>
-                        </div>
+
+                      {/* Formulario */}
+                      <div className="panel-card form-panel">
+                        <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                          {editingProduccionId ? <><Pencil size={18} /> Editar Producción</> : <><PlusCircle size={18} /> Registrar Producción</>}
+                        </h2>
+                        <form onSubmit={handleProduccionSubmit}>
+                          <div className="form-group">
+                            <label>Fecha de Operación *</label>
+                            <input type="date" className="form-control" value={produccionForm.fecha} onChange={e => setProduccionForm({ ...produccionForm, fecha: e.target.value })} required />
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Máquina IS *</label>
+                              <select className="form-control" value={produccionForm.id_maquina} onChange={e => setProduccionForm({ ...produccionForm, id_maquina: e.target.value })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {maquinas.filter(m => m.estado !== 'INACTIVA').map(m => <option key={m.id_maquina} value={m.id_maquina}>{m.codigo}</option>)}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Turno *</label>
+                              <select className="form-control" value={produccionForm.id_turno} onChange={e => setProduccionForm({ ...produccionForm, id_turno: e.target.value })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.codigo_turno}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Producto *</label>
+                              <select className="form-control" value={produccionForm.id_producto} onChange={e => setProduccionForm({ ...produccionForm, id_producto: e.target.value })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {productos.map(p => <option key={p.id_producto} value={p.id_producto}>{p.nombre_producto}</option>)}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Usuario Operador *</label>
+                              <select className="form-control" value={produccionForm.id_usuario} onChange={e => setProduccionForm({ ...produccionForm, id_usuario: e.target.value })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {usuarios.map(u => <option key={u.id_usuario} value={u.id_usuario}>{u.usuario} ({u.nombre})</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Paletas Producidas</label>
+                              <input type="number" step="0.1" className="form-control" value={produccionForm.paletas_producidas} onChange={e => setProduccionForm({ ...produccionForm, paletas_producidas: parseFloat(e.target.value) || 0 })} />
+                            </div>
+                            <div className="form-group">
+                              <label>Gruesas Producidas</label>
+                              <input type="number" className="form-control" value={produccionForm.gruesas_producidas} onChange={e => setProduccionForm({ ...produccionForm, gruesas_producidas: parseFloat(e.target.value) || 0 })} />
+                            </div>
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Gruesas Empacadas</label>
+                              <input type="number" className="form-control" value={produccionForm.gruesas_empacadas} onChange={e => setProduccionForm({ ...produccionForm, gruesas_empacadas: parseFloat(e.target.value) || 0 })} />
+                            </div>
+                            <div className="form-group">
+                              <label>Gruesas Retenidas</label>
+                              <input type="number" className="form-control" value={produccionForm.gruesas_retenidas} onChange={e => setProduccionForm({ ...produccionForm, gruesas_retenidas: parseFloat(e.target.value) || 0 })} />
+                            </div>
+                          </div>
+                          <div className="form-group">
+                            <label>Observaciones de Operación</label>
+                            <textarea className="form-control" rows="3" value={produccionForm.observaciones} onChange={e => setProduccionForm({ ...produccionForm, observaciones: e.target.value })} placeholder="Fugas, fallos mecánicos, etc..."></textarea>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                            <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingProduccionId ? 'Guardar Cambios' : 'Registrar Producción'}</button>
+                            {editingProduccionId && <button type="button" className="btn btn-secondary" onClick={() => {
+                              setEditingProduccionId(null);
+                              setProduccionForm({ fecha: new Date().toISOString().split('T')[0], id_turno: '', id_maquina: '', id_producto: '', id_usuario: currentUser.id_usuario.toString(), paletas_producidas: 0, gruesas_producidas: 0, gruesas_empacadas: 0, gruesas_retenidas: 0, observaciones: '' });
+                            }}>Cancelar</button>}
+                          </div>
+                        </form>
                       </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Producto *</label>
-                          <select className="form-control" value={produccionForm.id_producto} onChange={e => setProduccionForm({ ...produccionForm, id_producto: e.target.value })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {productos.map(p => <option key={p.id_producto} value={p.id_producto}>{p.nombre_producto}</option>)}
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>Usuario Operador *</label>
-                          <select className="form-control" value={produccionForm.id_usuario} onChange={e => setProduccionForm({ ...produccionForm, id_usuario: e.target.value })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {usuarios.map(u => <option key={u.id_usuario} value={u.id_usuario}>{u.usuario} ({u.nombre})</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Paletas Producidas</label>
-                          <input type="number" step="0.1" className="form-control" value={produccionForm.paletas_producidas} onChange={e => setProduccionForm({ ...produccionForm, paletas_producidas: parseFloat(e.target.value) || 0 })} />
-                        </div>
-                        <div className="form-group">
-                          <label>Gruesas Producidas</label>
-                          <input type="number" className="form-control" value={produccionForm.gruesas_producidas} onChange={e => setProduccionForm({ ...produccionForm, gruesas_producidas: parseFloat(e.target.value) || 0 })} />
-                        </div>
-                      </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Gruesas Empacadas</label>
-                          <input type="number" className="form-control" value={produccionForm.gruesas_empacadas} onChange={e => setProduccionForm({ ...produccionForm, gruesas_empacadas: parseFloat(e.target.value) || 0 })} />
-                        </div>
-                        <div className="form-group">
-                          <label>Gruesas Retenidas</label>
-                          <input type="number" className="form-control" value={produccionForm.gruesas_retenidas} onChange={e => setProduccionForm({ ...produccionForm, gruesas_retenidas: parseFloat(e.target.value) || 0 })} />
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label>Observaciones de Operación</label>
-                        <textarea className="form-control" rows="3" value={produccionForm.observaciones} onChange={e => setProduccionForm({ ...produccionForm, observaciones: e.target.value })} placeholder="Fugas, fallos mecánicos, etc..."></textarea>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingProduccionId ? 'Guardar Cambios' : 'Registrar Producción'}</button>
-                        {editingProduccionId && <button type="button" className="btn btn-secondary" onClick={() => {
-                          setEditingProduccionId(null);
-                          setProduccionForm({ fecha: new Date().toISOString().split('T')[0], id_turno: '', id_maquina: '', id_producto: '', id_usuario: currentUser.id_usuario.toString(), paletas_producidas: 0, gruesas_producidas: 0, gruesas_empacadas: 0, gruesas_retenidas: 0, observaciones: '' });
-                        }}>Cancelar</button>}
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </>
+                    </div>
+                  </>
+                );
+              })()
             } />
 
             {/* OPERACIÓN: INSPECCIONES */}
             <Route path="/inspecciones" element={
-              <>
-                <PageHeader title="Inspecciones de Calidad" description="Registro de fisuras, defectos y temperatura en Zona Caliente." serverStatus={serverStatus} />
-                <div className="main-content split-view">
-                  {/* Listado */}
-                  <div className="panel-card">
-                    <div className="panel-header">
-                      <h2>Controles de Calidad</h2>
-                      <button className="btn btn-secondary" onClick={() => fetchData('inspecciones', setInspecciones)}><RefreshCw size={14} /> Recargar</button>
+              (() => {
+                const filteredInspecciones = inspecciones.filter(i => {
+                  if (inspFilterDesde && i.fecha < inspFilterDesde) return false;
+                  if (inspFilterHasta && i.fecha > inspFilterHasta) return false;
+                  return true;
+                });
+                return (
+                  <>
+                    {/* Cabecera para reportes impresos */}
+                    <div className="print-header-container">
+                      <div className="print-header-brand">Venvidrio - Zona Caliente</div>
+                      <h1 className="print-header-title">Reporte de Inspecciones de Calidad</h1>
+                      <div className="print-header-meta">
+                        <span><strong>Fecha de generación:</strong> {new Date().toLocaleString()}</span>
+                        <span><strong>Generado por:</strong> {currentUser?.nombre} {currentUser?.apellido} ({currentUser?.rol})</span>
+                        {(inspFilterDesde || inspFilterHasta) && (
+                          <span><strong>Rango de fechas:</strong> {inspFilterDesde || 'Inicio'} al {inspFilterHasta || 'Fin'}</span>
+                        )}
+                      </div>
+                      <hr className="print-header-divider" />
                     </div>
 
-                    {inspecciones.length === 0 ? (
-                      <div className="empty-state"><p>No hay inspecciones registradas.</p></div>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="table-custom">
-                          <thead>
-                            <tr>
-                              <th>Fecha/Hora</th>
-                              <th>Máquina/Sec.</th>
-                              <th>Inspector</th>
-                              <th>Producto</th>
-                              <th>Lote</th>
-                              <th>Temp. (°C)</th>
-                              <th>Acciones</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {inspecciones.map(i => (
-                              <tr key={i.id_inspeccion}>
-                                <td>{i.fecha} {i.hora}</td>
-                                <td><strong>{i.maquina_codigo}</strong> - Sec. {i.seccion_numero}</td>
-                                <td>{i.inspector_nombre}</td>
-                                <td>{i.producto_nombre}</td>
-                                <td>{i.lote}</td>
-                                <td>{i.temperatura_maquina}°C</td>
-                                <td>
-                                  <button className="btn-icon edit" onClick={() => {
-                                    setEditingInspeccionId(i.id_inspeccion);
-                                    setInspeccionForm({
-                                      fecha: i.fecha, hora: i.hora, id_turno: i.id_turno, id_inspector: i.id_inspector,
-                                      id_maquina: i.id_maquina, id_seccion: i.id_seccion, id_producto: i.id_producto,
-                                      lote: i.lote || '', temperatura_maquina: i.temperatura_maquina, observaciones: i.observaciones || ''
-                                    });
-                                  }} title="Editar Registro"><Pencil size={14} /></button>
-                                  {currentUser?.rol === 'Administrador' && (
-                                    <button className="btn-icon delete" onClick={() => handleDeleteInspeccion(i.id_inspeccion)} title="Eliminar Registro"><Trash2 size={14} /></button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                    <PageHeader title="Inspecciones de Calidad" description="Registro de fisuras, defectos y temperatura en Zona Caliente." serverStatus={serverStatus} theme={theme} toggleTheme={toggleTheme} />
+                    <div className="main-content split-view">
+                      {/* Listado */}
+                      <div className="panel-card">
+                        <div className="panel-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '1rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2>Controles de Calidad</h2>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button className="btn btn-secondary" onClick={() => fetchData('inspecciones', setInspecciones)}><RefreshCw size={14} /> Recargar</button>
+                              <button className="btn btn-success" onClick={() => handleExportCSV('Inspecciones', filteredInspecciones, inspeccionesCols)} title="Exportar a CSV / Excel"><Download size={14} /> Excel</button>
+                              <button className="btn btn-info" onClick={() => window.print()} title="Imprimir / Guardar PDF"><FileText size={14} /> PDF</button>
+                            </div>
+                          </div>
+                          
+                          {/* Filtros de Rango de Fechas */}
+                          <div className="filter-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(255, 255, 255, 0.02)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Desde:</span>
+                              <input type="date" className="form-control" style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', height: 'auto' }} value={inspFilterDesde} onChange={e => setInspFilterDesde(e.target.value)} />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Hasta:</span>
+                              <input type="date" className="form-control" style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', height: 'auto' }} value={inspFilterHasta} onChange={e => setInspFilterHasta(e.target.value)} />
+                            </div>
+                            {(inspFilterDesde || inspFilterHasta) && (
+                              <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', height: 'auto' }} onClick={() => { setInspFilterDesde(''); setInspFilterHasta(''); }}>Limpiar</button>
+                            )}
+                          </div>
+                        </div>
 
-                  {/* Formulario */}
-                  <div className="panel-card form-panel">
-                    <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                      {editingInspeccionId ? <><Pencil size={18} /> Editar Control</> : <><PlusCircle size={18} /> Registrar Control</>}
-                    </h2>
-                    <form onSubmit={handleInspeccionSubmit}>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Fecha *</label>
-                          <input type="date" className="form-control" value={inspeccionForm.fecha} onChange={e => setInspeccionForm({ ...inspeccionForm, fecha: e.target.value })} required />
-                        </div>
-                        <div className="form-group">
-                          <label>Hora *</label>
-                          <input type="text" className="form-control" value={inspeccionForm.hora} onChange={e => setInspeccionForm({ ...inspeccionForm, hora: e.target.value })} required />
-                        </div>
+                        {filteredInspecciones.length === 0 ? (
+                          <div className="empty-state"><p>No hay inspecciones registradas en el rango seleccionado.</p></div>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="table-custom">
+                              <thead>
+                                <tr>
+                                  <th>Fecha/Hora</th>
+                                  <th>Máquina/Sec.</th>
+                                  <th>Inspector</th>
+                                  <th>Producto</th>
+                                  <th>Lote</th>
+                                  <th>Temp. (°C)</th>
+                                  <th>Acciones</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filteredInspecciones.map(i => (
+                                  <tr key={i.id_inspeccion}>
+                                    <td>{i.fecha} {i.hora}</td>
+                                    <td><strong>{i.maquina_codigo}</strong> - Sec. {i.seccion_numero}</td>
+                                    <td>{i.inspector_nombre}</td>
+                                    <td>{i.producto_nombre}</td>
+                                    <td>{i.lote}</td>
+                                    <td>{i.temperatura_maquina}°C</td>
+                                    <td>
+                                      <button className="btn-icon edit" onClick={() => {
+                                        setEditingInspeccionId(i.id_inspeccion);
+                                        setInspeccionForm({
+                                          fecha: i.fecha, hora: i.hora, id_turno: i.id_turno, id_inspector: i.id_inspector,
+                                          id_maquina: i.id_maquina, id_seccion: i.id_seccion, id_producto: i.id_producto,
+                                          lote: i.lote || '', temperatura_maquina: i.temperatura_maquina, observaciones: i.observaciones || ''
+                                        });
+                                      }} title="Editar Registro"><Pencil size={14} /></button>
+                                      {currentUser?.rol === 'Administrador' && (
+                                        <button className="btn-icon delete" onClick={() => handleDeleteInspeccion(i.id_inspeccion)} title="Eliminar Registro"><Trash2 size={14} /></button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Máquina IS *</label>
-                          <select className="form-control" value={inspeccionForm.id_maquina} onChange={e => setInspeccionForm({ ...inspeccionForm, id_maquina: e.target.value, id_seccion: '' })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {maquinas.map(m => <option key={m.id_maquina} value={m.id_maquina}>{m.codigo}</option>)}
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>Sección de Máquina *</label>
-                          <select className="form-control" value={inspeccionForm.id_seccion} onChange={e => setInspeccionForm({ ...inspeccionForm, id_seccion: e.target.value })} required disabled={!inspeccionForm.id_maquina}>
-                            <option value="">-- Seleccionar Sección --</option>
-                            {secciones.filter(s => s.id_maquina === parseInt(inspeccionForm.id_maquina, 10)).map(s => (
-                              <option key={s.id_seccion} value={s.id_seccion}>Sección #{s.numero_seccion}</option>
-                            ))}
-                          </select>
-                        </div>
+
+                      {/* Formulario */}
+                      <div className="panel-card form-panel">
+                        <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                          {editingInspeccionId ? <><Pencil size={18} /> Editar Control</> : <><PlusCircle size={18} /> Registrar Control</>}
+                        </h2>
+                        <form onSubmit={handleInspeccionSubmit}>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Fecha *</label>
+                              <input type="date" className="form-control" value={inspeccionForm.fecha} onChange={e => setInspeccionForm({ ...inspeccionForm, fecha: e.target.value })} required />
+                            </div>
+                            <div className="form-group">
+                              <label>Hora *</label>
+                              <input type="text" className="form-control" value={inspeccionForm.hora} onChange={e => setInspeccionForm({ ...inspeccionForm, hora: e.target.value })} required />
+                            </div>
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Máquina IS *</label>
+                              <select className="form-control" value={inspeccionForm.id_maquina} onChange={e => setInspeccionForm({ ...inspeccionForm, id_maquina: e.target.value, id_seccion: '' })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {maquinas.map(m => <option key={m.id_maquina} value={m.id_maquina}>{m.codigo}</option>)}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Sección de Máquina *</label>
+                              <select className="form-control" value={inspeccionForm.id_seccion} onChange={e => setInspeccionForm({ ...inspeccionForm, id_seccion: e.target.value })} required disabled={!inspeccionForm.id_maquina}>
+                                <option value="">-- Seleccionar Sección --</option>
+                                {secciones.filter(s => s.id_maquina === parseInt(inspeccionForm.id_maquina, 10)).map(s => (
+                                  <option key={s.id_seccion} value={s.id_seccion}>Sección #{s.numero_seccion}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Turno *</label>
+                              <select className="form-control" value={inspeccionForm.id_turno} onChange={e => setInspeccionForm({ ...inspeccionForm, id_turno: e.target.value })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.codigo_turno}</option>)}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Inspector de Guardia *</label>
+                              <select className="form-control" value={inspeccionForm.id_inspector} onChange={e => setInspeccionForm({ ...inspeccionForm, id_inspector: e.target.value })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {inspectores.map(i => <option key={i.id_inspector} value={i.id_inspector}>{i.nombre} {i.apellido}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Producto *</label>
+                              <select className="form-control" value={inspeccionForm.id_producto} onChange={e => setInspeccionForm({ ...inspeccionForm, id_producto: e.target.value })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {productos.map(p => <option key={p.id_producto} value={p.id_producto}>{p.nombre_producto}</option>)}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Lote de Producción</label>
+                              <input type="text" className="form-control" value={inspeccionForm.lote} onChange={e => setInspeccionForm({ ...inspeccionForm, lote: e.target.value })} placeholder="Ej: L10-A" />
+                            </div>
+                          </div>
+                          <div className="form-group">
+                            <label>Temperatura Molde / Gota (°C)</label>
+                            <input type="number" className="form-control" value={inspeccionForm.temperatura_maquina} onChange={e => setInspeccionForm({ ...inspeccionForm, temperatura_maquina: parseFloat(e.target.value) || 0 })} />
+                          </div>
+                          <div className="form-group">
+                            <label>Observaciones Físicas</label>
+                            <textarea className="form-control" rows="3" value={inspeccionForm.observaciones} onChange={e => setInspeccionForm({ ...inspeccionForm, observaciones: e.target.value })} placeholder="Ej: corona incompleta, fisura en base..."></textarea>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                            <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingInspeccionId ? 'Guardar Cambios' : 'Registrar Inspección'}</button>
+                            {editingInspeccionId && <button type="button" className="btn btn-secondary" onClick={() => {
+                              setEditingInspeccionId(null);
+                              setInspeccionForm({ fecha: new Date().toISOString().split('T')[0], hora: new Date().toTimeString().split(' ')[0], id_turno: '', id_inspector: '', id_maquina: '', id_seccion: '', id_producto: '', lote: '', temperatura_maquina: 1100, observaciones: '' });
+                            }}>Cancelar</button>}
+                          </div>
+                        </form>
                       </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Turno *</label>
-                          <select className="form-control" value={inspeccionForm.id_turno} onChange={e => setInspeccionForm({ ...inspeccionForm, id_turno: e.target.value })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.codigo_turno}</option>)}
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>Inspector de Guardia *</label>
-                          <select className="form-control" value={inspeccionForm.id_inspector} onChange={e => setInspeccionForm({ ...inspeccionForm, id_inspector: e.target.value })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {inspectores.map(i => <option key={i.id_inspector} value={i.id_inspector}>{i.nombre} {i.apellido}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Producto *</label>
-                          <select className="form-control" value={inspeccionForm.id_producto} onChange={e => setInspeccionForm({ ...inspeccionForm, id_producto: e.target.value })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {productos.map(p => <option key={p.id_producto} value={p.id_producto}>{p.nombre_producto}</option>)}
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>Lote de Producción</label>
-                          <input type="text" className="form-control" value={inspeccionForm.lote} onChange={e => setInspeccionForm({ ...inspeccionForm, lote: e.target.value })} placeholder="Ej: L10-A" />
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label>Temperatura Molde / Gota (°C)</label>
-                        <input type="number" className="form-control" value={inspeccionForm.temperatura_maquina} onChange={e => setInspeccionForm({ ...inspeccionForm, temperatura_maquina: parseFloat(e.target.value) || 0 })} />
-                      </div>
-                      <div className="form-group">
-                        <label>Observaciones Físicas</label>
-                        <textarea className="form-control" rows="3" value={inspeccionForm.observaciones} onChange={e => setInspeccionForm({ ...inspeccionForm, observaciones: e.target.value })} placeholder="Ej: corona incompleta, fisura en base..."></textarea>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingInspeccionId ? 'Guardar Cambios' : 'Registrar Inspección'}</button>
-                        {editingInspeccionId && <button type="button" className="btn btn-secondary" onClick={() => {
-                          setEditingInspeccionId(null);
-                          setInspeccionForm({ fecha: new Date().toISOString().split('T')[0], hora: new Date().toTimeString().split(' ')[0], id_turno: '', id_inspector: '', id_maquina: '', id_seccion: '', id_producto: '', lote: '', temperatura_maquina: 1100, observaciones: '' });
-                        }}>Cancelar</button>}
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </>
+                    </div>
+                  </>
+                );
+              })()
             } />
 
             {/* OPERACIÓN: PARADAS */}
             <Route path="/paradas" element={
-              <>
-                <PageHeader title="Tiempos de Parada" description="Registro de detención por sección IS en máquina formadora." serverStatus={serverStatus} />
-                <div className="main-content split-view">
-                  {/* Listado */}
-                  <div className="panel-card">
-                    <div className="panel-header">
-                      <h2>Control de Tiempos de Parada</h2>
-                      <button className="btn btn-secondary" onClick={() => fetchData('paradas', setParadas)}><RefreshCw size={14} /> Recargar</button>
+              (() => {
+                const filteredParadas = paradas.filter(p => {
+                  if (paraFilterDesde && p.fecha < paraFilterDesde) return false;
+                  if (paraFilterHasta && p.fecha > paraFilterHasta) return false;
+                  return true;
+                });
+                return (
+                  <>
+                    {/* Cabecera para reportes impresos */}
+                    <div className="print-header-container">
+                      <div className="print-header-brand">Venvidrio - Zona Caliente</div>
+                      <h1 className="print-header-title">Reporte de Control de Tiempos de Parada</h1>
+                      <div className="print-header-meta">
+                        <span><strong>Fecha de generación:</strong> {new Date().toLocaleString()}</span>
+                        <span><strong>Generado por:</strong> {currentUser?.nombre} {currentUser?.apellido} ({currentUser?.rol})</span>
+                        {(paraFilterDesde || paraFilterHasta) && (
+                          <span><strong>Rango de fechas:</strong> {paraFilterDesde || 'Inicio'} al {paraFilterHasta || 'Fin'}</span>
+                        )}
+                      </div>
+                      <hr className="print-header-divider" />
                     </div>
 
-                    {paradas.length === 0 ? (
-                      <div className="empty-state"><p>No se registran paradas de secciones.</p></div>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="table-custom">
-                          <thead>
-                            <tr>
-                              <th>Fecha</th>
-                              <th>Máquina / Secc.</th>
-                              <th>Tipo Parada</th>
-                              <th>Minutos</th>
-                              <th>Detalle</th>
-                              <th>Acciones</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {paradas.map(p => (
-                              <tr key={p.id_parada}>
-                                <td>{p.fecha}</td>
-                                <td><strong>{p.maquina_codigo}</strong> - Secc. {p.seccion_numero}</td>
-                                <td><span className="badge badge-warning">{p.tipo_parada_nombre}</span></td>
-                                <td><strong>{p.minutos_parada} min</strong></td>
-                                <td>{p.descripcion}</td>
-                                <td>
-                                  <button className="btn-icon edit" onClick={() => {
-                                    setEditingParadaId(p.id_parada);
-                                    setParadaForm({
-                                      fecha: p.fecha, id_turno: p.id_turno, id_maquina: p.id_maquina, id_seccion: p.id_seccion,
-                                      id_tipo_parada: p.id_tipo_parada, hora_inicio: p.hora_inicio ? p.hora_inicio.substring(0, 16) : '',
-                                      hora_fin: p.hora_fin ? p.hora_fin.substring(0, 16) : '', minutos_parada: p.minutos_parada,
-                                      descripcion: p.descripcion || ''
-                                    });
-                                  }} title="Editar Registro"><Pencil size={14} /></button>
-                                  {currentUser?.rol === 'Administrador' && (
-                                    <button className="btn-icon delete" onClick={() => handleDeleteParada(p.id_parada)} title="Eliminar Registro"><Trash2 size={14} /></button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                    <PageHeader title="Tiempos de Parada" description="Registro de detención por sección IS en máquina formadora." serverStatus={serverStatus} theme={theme} toggleTheme={toggleTheme} />
+                    <div className="main-content split-view">
+                      {/* Listado */}
+                      <div className="panel-card">
+                        <div className="panel-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '1rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2>Control de Tiempos de Parada</h2>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button className="btn btn-secondary" onClick={() => fetchData('paradas', setParadas)}><RefreshCw size={14} /> Recargar</button>
+                              <button className="btn btn-success" onClick={() => handleExportCSV('Paradas', filteredParadas, paradasCols)} title="Exportar a CSV / Excel"><Download size={14} /> Excel</button>
+                              <button className="btn btn-info" onClick={() => window.print()} title="Imprimir / Guardar PDF"><FileText size={14} /> PDF</button>
+                            </div>
+                          </div>
+                          
+                          {/* Filtros de Rango de Fechas */}
+                          <div className="filter-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(255, 255, 255, 0.02)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Desde:</span>
+                              <input type="date" className="form-control" style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', height: 'auto' }} value={paraFilterDesde} onChange={e => setParaFilterDesde(e.target.value)} />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Hasta:</span>
+                              <input type="date" className="form-control" style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', height: 'auto' }} value={paraFilterHasta} onChange={e => setParaFilterHasta(e.target.value)} />
+                            </div>
+                            {(paraFilterDesde || paraFilterHasta) && (
+                              <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', height: 'auto' }} onClick={() => { setParaFilterDesde(''); setParaFilterHasta(''); }}>Limpiar</button>
+                            )}
+                          </div>
+                        </div>
 
-                  {/* Formulario */}
-                  <div className="panel-card form-panel">
-                    <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                      {editingParadaId ? <><Pencil size={18} /> Editar Parada</> : <><PlusCircle size={18} /> Registrar Parada</>}
-                    </h2>
-                    <form onSubmit={handleParadaSubmit}>
-                      <div className="form-group">
-                        <label>Fecha del Evento *</label>
-                        <input type="date" className="form-control" value={paradaForm.fecha} onChange={e => setParadaForm({ ...paradaForm, fecha: e.target.value })} required />
+                        {filteredParadas.length === 0 ? (
+                          <div className="empty-state"><p>No se registran paradas de secciones en el rango seleccionado.</p></div>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="table-custom">
+                              <thead>
+                                <tr>
+                                  <th>Fecha</th>
+                                  <th>Máquina / Secc.</th>
+                                  <th>Tipo Parada</th>
+                                  <th>Minutos</th>
+                                  <th>Detalle</th>
+                                  <th>Acciones</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {filteredParadas.map(p => (
+                                  <tr key={p.id_parada}>
+                                    <td>{p.fecha}</td>
+                                    <td><strong>{p.maquina_codigo}</strong> - Secc. {p.seccion_numero}</td>
+                                    <td><span className="badge badge-warning">{p.tipo_parada_nombre}</span></td>
+                                    <td><strong>{p.minutos_parada} min</strong></td>
+                                    <td>{p.descripcion}</td>
+                                    <td>
+                                      <button className="btn-icon edit" onClick={() => {
+                                        setEditingParadaId(p.id_parada);
+                                        setParadaForm({
+                                          fecha: p.fecha, id_turno: p.id_turno, id_maquina: p.id_maquina, id_seccion: p.id_seccion,
+                                          id_tipo_parada: p.id_tipo_parada, hora_inicio: p.hora_inicio ? p.hora_inicio.substring(0, 16) : '',
+                                          hora_fin: p.hora_fin ? p.hora_fin.substring(0, 16) : '', minutos_parada: p.minutos_parada,
+                                          descripcion: p.descripcion || ''
+                                        });
+                                      }} title="Editar Registro"><Pencil size={14} /></button>
+                                      {currentUser?.rol === 'Administrador' && (
+                                        <button className="btn-icon delete" onClick={() => handleDeleteParada(p.id_parada)} title="Eliminar Registro"><Trash2 size={14} /></button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Máquina IS *</label>
-                          <select className="form-control" value={paradaForm.id_maquina} onChange={e => setParadaForm({ ...paradaForm, id_maquina: e.target.value, id_seccion: '' })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {maquinas.map(m => <option key={m.id_maquina} value={m.id_maquina}>{m.codigo}</option>)}
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>Sección Afectada *</label>
-                          <select className="form-control" value={paradaForm.id_seccion} onChange={e => setParadaForm({ ...paradaForm, id_seccion: e.target.value })} required disabled={!paradaForm.id_maquina}>
-                            <option value="">-- Seleccionar --</option>
-                            {secciones.filter(s => s.id_maquina === parseInt(paradaForm.id_maquina, 10)).map(s => (
-                              <option key={s.id_seccion} value={s.id_seccion}>Sección #{s.numero_seccion}</option>
-                            ))}
-                          </select>
-                        </div>
+
+                      {/* Formulario */}
+                      <div className="panel-card form-panel">
+                        <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                          {editingParadaId ? <><Pencil size={18} /> Editar Parada</> : <><PlusCircle size={18} /> Registrar Parada</>}
+                        </h2>
+                        <form onSubmit={handleParadaSubmit}>
+                          <div className="form-group">
+                            <label>Fecha del Evento *</label>
+                            <input type="date" className="form-control" value={paradaForm.fecha} onChange={e => setParadaForm({ ...paradaForm, fecha: e.target.value })} required />
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Máquina IS *</label>
+                              <select className="form-control" value={paradaForm.id_maquina} onChange={e => setParadaForm({ ...paradaForm, id_maquina: e.target.value, id_seccion: '' })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {maquinas.map(m => <option key={m.id_maquina} value={m.id_maquina}>{m.codigo}</option>)}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Sección Afectada *</label>
+                              <select className="form-control" value={paradaForm.id_seccion} onChange={e => setParadaForm({ ...paradaForm, id_seccion: e.target.value })} required disabled={!paradaForm.id_maquina}>
+                                <option value="">-- Seleccionar --</option>
+                                {secciones.filter(s => s.id_maquina === parseInt(paradaForm.id_maquina, 10)).map(s => (
+                                  <option key={s.id_seccion} value={s.id_seccion}>Sección #{s.numero_seccion}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Turno *</label>
+                              <select className="form-control" value={paradaForm.id_turno} onChange={e => setParadaForm({ ...paradaForm, id_turno: e.target.value })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.codigo_turno}</option>)}
+                              </select>
+                            </div>
+                            <div className="form-group">
+                              <label>Tipo de Parada *</label>
+                              <select className="form-control" value={paradaForm.id_tipo_parada} onChange={e => setParadaForm({ ...paradaForm, id_tipo_parada: e.target.value })} required>
+                                <option value="">-- Seleccionar --</option>
+                                {tiposParadas.map(tp => <option key={tp.id_tipo_parada} value={tp.id_tipo_parada}>{tp.nombre}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="form-row">
+                            <div className="form-group">
+                              <label>Hora Inicio</label>
+                              <input type="datetime-local" className="form-control" value={paradaForm.hora_inicio} onChange={e => setParadaForm({ ...paradaForm, hora_inicio: e.target.value })} />
+                            </div>
+                            <div className="form-group">
+                              <label>Hora Fin</label>
+                              <input type="datetime-local" className="form-control" value={paradaForm.hora_fin} onChange={e => setParadaForm({ ...paradaForm, hora_fin: e.target.value })} />
+                            </div>
+                          </div>
+                          <div className="form-group">
+                            <label>Minutos Totales Detenido *</label>
+                            <input type="number" className="form-control" value={paradaForm.minutos_parada} onChange={e => setParadaForm({ ...paradaForm, minutos_parada: parseInt(e.target.value, 10) || 0 })} required />
+                          </div>
+                          <div className="form-group">
+                            <label>Descripción / Observación</label>
+                            <textarea className="form-control" rows="3" value={paradaForm.descripcion} onChange={e => setParadaForm({ ...paradaForm, descripcion: e.target.value })} placeholder="Ej: Se atasca pinza de extracción, requiere reajuste técnico."></textarea>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                            <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingParadaId ? 'Guardar Parada' : 'Registrar Parada'}</button>
+                            {editingParadaId && <button type="button" className="btn btn-secondary" onClick={() => {
+                              setEditingParadaId(null);
+                              setParadaForm({ fecha: new Date().toISOString().split('T')[0], id_turno: '', id_maquina: '', id_seccion: '', id_tipo_parada: '', hora_inicio: '', hora_fin: '', minutos_parada: 0, descripcion: '' });
+                            }}>Cancelar</button>}
+                          </div>
+                        </form>
                       </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Turno *</label>
-                          <select className="form-control" value={paradaForm.id_turno} onChange={e => setParadaForm({ ...paradaForm, id_turno: e.target.value })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {turnos.map(t => <option key={t.id_turno} value={t.id_turno}>{t.codigo_turno}</option>)}
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label>Tipo de Parada *</label>
-                          <select className="form-control" value={paradaForm.id_tipo_parada} onChange={e => setParadaForm({ ...paradaForm, id_tipo_parada: e.target.value })} required>
-                            <option value="">-- Seleccionar --</option>
-                            {tiposParadas.map(tp => <option key={tp.id_tipo_parada} value={tp.id_tipo_parada}>{tp.nombre}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label>Hora Inicio</label>
-                          <input type="datetime-local" className="form-control" value={paradaForm.hora_inicio} onChange={e => setParadaForm({ ...paradaForm, hora_inicio: e.target.value })} />
-                        </div>
-                        <div className="form-group">
-                          <label>Hora Fin</label>
-                          <input type="datetime-local" className="form-control" value={paradaForm.hora_fin} onChange={e => setParadaForm({ ...paradaForm, hora_fin: e.target.value })} />
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label>Minutos Totales Detenido *</label>
-                        <input type="number" className="form-control" value={paradaForm.minutos_parada} onChange={e => setParadaForm({ ...paradaForm, minutos_parada: parseInt(e.target.value, 10) || 0 })} required />
-                      </div>
-                      <div className="form-group">
-                        <label>Descripción / Observación</label>
-                        <textarea className="form-control" rows="3" value={paradaForm.descripcion} onChange={e => setParadaForm({ ...paradaForm, descripcion: e.target.value })} placeholder="Ej: Se atasca pinza de extracción, requiere reajuste técnico."></textarea>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingParadaId ? 'Guardar Parada' : 'Registrar Parada'}</button>
-                        {editingParadaId && <button type="button" className="btn btn-secondary" onClick={() => {
-                          setEditingParadaId(null);
-                          setParadaForm({ fecha: new Date().toISOString().split('T')[0], id_turno: '', id_maquina: '', id_seccion: '', id_tipo_parada: '', hora_inicio: '', hora_fin: '', minutos_parada: 0, descripcion: '' });
-                        }}>Cancelar</button>}
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </>
+                    </div>
+                  </>
+                );
+              })()
             } />
 
             {/* RUTAS DE ADMINISTRACIÓN: CRUD GENÉRICOS DE CONFIGURACIÓN */}
@@ -1407,6 +1677,8 @@ export default function App() {
                   endpoint="usuarios" title="Usuarios" idField="id_usuario" 
                   fields={usuariosFields} displayColumns={usuariosCols} 
                   serverStatus={serverStatus} onMutation={loadInitData} 
+                  theme={theme} toggleTheme={toggleTheme}
+                  currentUser={currentUser}
                 />
               </ProtectedRoute>
             } />
@@ -1417,6 +1689,8 @@ export default function App() {
                   endpoint="turnos" title="Turnos" idField="id_turno" 
                   fields={turnosFields} displayColumns={turnosCols} 
                   serverStatus={serverStatus} onMutation={loadInitData} 
+                  theme={theme} toggleTheme={toggleTheme}
+                  currentUser={currentUser}
                 />
               </ProtectedRoute>
             } />
@@ -1427,6 +1701,8 @@ export default function App() {
                   endpoint="maquinas" title="Máquinas" idField="id_maquina" 
                   fields={maquinasFields} displayColumns={maquinasCols} 
                   serverStatus={serverStatus} onMutation={loadInitData} 
+                  theme={theme} toggleTheme={toggleTheme}
+                  currentUser={currentUser}
                 />
               </ProtectedRoute>
             } />
@@ -1437,6 +1713,8 @@ export default function App() {
                   endpoint="productos" title="Productos" idField="id_producto" 
                   fields={productosFields} displayColumns={productosCols} 
                   serverStatus={serverStatus} onMutation={loadInitData} 
+                  theme={theme} toggleTheme={toggleTheme}
+                  currentUser={currentUser}
                 />
               </ProtectedRoute>
             } />
@@ -1447,6 +1725,8 @@ export default function App() {
                   endpoint="catalogo_defectos" title="Defectos" idField="id_defecto" 
                   fields={defectosFields} displayColumns={defectosCols} 
                   serverStatus={serverStatus} onMutation={loadInitData} 
+                  theme={theme} toggleTheme={toggleTheme}
+                  currentUser={currentUser}
                 />
               </ProtectedRoute>
             } />
@@ -1457,6 +1737,8 @@ export default function App() {
                   endpoint="inspectores" title="Inspectores" idField="id_inspector" 
                   fields={inspectoresFields} displayColumns={inspectoresCols} 
                   serverStatus={serverStatus} onMutation={loadInitData} 
+                  theme={theme} toggleTheme={toggleTheme}
+                  currentUser={currentUser}
                 />
               </ProtectedRoute>
             } />
@@ -1467,6 +1749,8 @@ export default function App() {
                   endpoint="moldes" title="Moldes" idField="id_molde" 
                   fields={moldesFields} displayColumns={moldesCols} 
                   serverStatus={serverStatus} onMutation={loadInitData} 
+                  theme={theme} toggleTheme={toggleTheme}
+                  currentUser={currentUser}
                 />
               </ProtectedRoute>
             } />
@@ -1477,6 +1761,8 @@ export default function App() {
                   endpoint="premoldes" title="Premoldes" idField="id_premolde" 
                   fields={premoldesFields} displayColumns={premoldesCols} 
                   serverStatus={serverStatus} onMutation={loadInitData} 
+                  theme={theme} toggleTheme={toggleTheme}
+                  currentUser={currentUser}
                 />
               </ProtectedRoute>
             } />
@@ -1487,6 +1773,8 @@ export default function App() {
                   endpoint="tipos_paradas" title="Tipos de Paradas" idField="id_tipo_parada" 
                   fields={tiposParadasFields} displayColumns={tiposParadasCols} 
                   serverStatus={serverStatus} onMutation={loadInitData} 
+                  theme={theme} toggleTheme={toggleTheme}
+                  currentUser={currentUser}
                 />
               </ProtectedRoute>
             } />

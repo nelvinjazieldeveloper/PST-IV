@@ -938,3 +938,367 @@ body {
   top: 2rem;
 }
 
+/* --- ESTILOS ADICIONALES PARA TEMA CLARO --- */
+:root.light-theme, body.light-theme {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: rgba(15, 23, 42, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.06);
+  color-scheme: light;
+}
+
+.light-theme .form-control {
+  background-color: #ffffff;
+  border-color: rgba(15, 23, 42, 0.15);
+  color: #0f172a;
+}
+
+.light-theme .form-control:focus {
+  border-color: var(--accent-secondary);
+  box-shadow: 0 0 0 2px rgba(79, 172, 254, 0.15);
+}
+
+.light-theme .login-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
+}
+
+.light-theme .sidebar {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.08);
+}
+
+.light-theme .sidebar-link:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.light-theme .sidebar-link.active {
+  color: #ffffff !important;
+}
+
+.light-theme .btn-secondary {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.light-theme .btn-secondary:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.light-theme .server-widget {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 15px rgba(15, 23, 42, 0.02);
+}
+
+.light-theme .user-profile-badge {
+  background: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+.light-theme .btn-theme-toggle {
+  background: #ffffff !important;
+  color: #475569 !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+}
+
+.light-theme .btn-theme-toggle:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.light-theme .btn-icon {
+  color: #64748b;
+}
+
+.light-theme .btn-icon:hover {
+  background: rgba(15, 23, 42, 0.04);
+  color: #0f172a;
+}
+
+.light-theme .btn-icon.edit:hover {
+  color: var(--accent-secondary);
+  background: rgba(79, 172, 254, 0.1);
+}
+
+.light-theme .btn-icon.delete:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.light-theme .table-custom th {
+  background-color: #f1f5f9;
+  color: #475569;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.light-theme .table-custom td {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.light-theme .table-custom tbody tr:hover {
+  background-color: rgba(15, 23, 42, 0.02);
+}
+
+.light-theme .menu-section-title {
+  color: #94a3b8;
+}
+
+.light-theme .sidebar-logout-btn {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+.light-theme .sidebar-logout-btn:hover {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.light-theme .empty-state {
+  color: #94a3b8;
+}
+
+.light-theme .badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+.light-theme .badge-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+.light-theme .badge-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+/* Estilos para Botones de Reporte */
+.btn-success {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.7rem 1.25rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  font-family: inherit;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.btn-success:hover {
+  background: var(--success);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.btn-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.7rem 1.25rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  font-family: inherit;
+  background: rgba(0, 242, 254, 0.15);
+  color: var(--accent-primary);
+  border: 1px solid rgba(0, 242, 254, 0.25);
+}
+
+.btn-info:hover {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 242, 254, 0.2);
+}
+
+/* Soporte para temas claros en los nuevos botones */
+.light-theme .btn-success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.light-theme .btn-success:hover {
+  background: #059669;
+  color: #ffffff;
+}
+
+.light-theme .btn-info {
+  background: rgba(14, 165, 233, 0.1);
+  color: #0284c7;
+  border-color: rgba(14, 165, 233, 0.2);
+}
+
+.light-theme .btn-info:hover {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+/* Cabecera del reporte exclusiva para impresión */
+.print-header-container {
+  display: none;
+}
+
+/* Reglas de Estilos para Impresión / Guardado PDF */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Outfit', 'Helvetica Neue', Arial, sans-serif !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Ocultar elementos que no corresponden al reporte impreso */
+  .sidebar,
+  .page-header-custom,
+  .form-panel,
+  .btn,
+  .btn-icon,
+  .btn-theme-toggle,
+  .server-widget,
+  .empty-state,
+  .alert,
+  .panel-header button,
+  .filter-row,
+  th:last-child,
+  td:last-child {
+    display: none !important;
+  }
+
+  /* Redefinición del layout principal a pantalla completa */
+  .app-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .main-layout {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .main-content.split-view {
+    display: block !important;
+  }
+
+  .panel-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Ocultar barra de botones en el listado */
+  .panel-header {
+    margin-bottom: 0.5rem !important;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+  }
+  
+  .panel-header h2 {
+    font-size: 1.25rem !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+  }
+
+  .table-responsive {
+    overflow: visible !important;
+  }
+
+  /* Tabla optimizada para impresión */
+  .table-custom {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 1rem !important;
+  }
+
+  .table-custom th {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    font-weight: 700 !important;
+    text-align: left !important;
+    padding: 8px 10px !important;
+    font-size: 0.8rem !important;
+  }
+
+  .table-custom td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 8px 10px !important;
+    color: #334155 !important;
+    font-size: 0.8rem !important;
+    background: #ffffff !important;
+  }
+
+  .table-custom tbody tr {
+    background: #ffffff !important;
+  }
+
+  /* Formato para badges de estado */
+  .badge {
+    padding: 0 !important;
+    background: transparent !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
+    border: none !important;
+  }
+
+  /* Mostrar y formatear cabecera de reporte */
+  .print-header-container {
+    display: block !important;
+    margin-bottom: 2rem !important;
+    border-bottom: 2px solid #0f172a !important;
+    padding-bottom: 1rem !important;
+  }
+
+  .print-header-brand {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+  }
+
+  .print-header-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.75rem;
+  }
+
+  .print-header-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #475569;
+  }
+}
+
+
